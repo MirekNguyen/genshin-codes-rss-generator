@@ -1,31 +1,51 @@
+import re
+import sys
+from datetime import datetime
+
+import pytz
 import requests
 from bs4 import BeautifulSoup
-import json
+from feedgen.feed import FeedGenerator
+
+timezone = pytz.timezone("Europe/Prague")
 
 # Send a GET request to the website
-url = 'https://genshin-impact.fandom.com/wiki/Promotional_Code'  # Replace with the actual URL of the website
+url = "https://genshin-impact.fandom.com/wiki/Promotional_Code"
 response = requests.get(url)
 
-# Create a BeautifulSoup object
-soup = BeautifulSoup(response.content, 'html.parser')
-
 # Find the tbody element
-tbody = soup.find('tbody')
-
-# Do something with the tbody element
-# For example, you can print its contents
-# print(tbody)
+soup = BeautifulSoup(response.content, "html.parser")
+tbody = soup.find("tbody")
 
 # Extract data from tbody and convert it to a JSON object
 data = []
-for row in tbody.find_all('tr'):
+for row in tbody.find_all("tr"):
     row_data = []
-    if not "expired" in row.text.lower():
-        for cell in row.find_all('td'):
+    if "expired" not in row.text.lower():
+        for cell in row.find_all("td"):
             row_data.append(cell.text.strip())
-        data.append(row_data)
-# Convert data to JSON
-json_data = json.dumps(data)
+        if row_data:
+            data.append(row_data)
 
-# Print the JSON object
-print(json_data)
+# Generate feed
+fg = FeedGenerator()
+fg.id("https://mirekng.com/rss/genshin-codes.xml")
+fg.title("Genshin codes")
+fg.subtitle("Genshin codes")
+fg.link(href="https://mirekng.com", rel="self")
+fg.language("en")
+for item in reversed(data):
+    fe = fg.add_entry()
+    fe.id(item[0])
+    fe.title(item[3])
+    fe.link(href="https://genshin.hoyoverse.com/en/gift?code=" +
+            item[0], replace=True)
+    match = re.search(r"Discovered: ([A-Za-z]+ \d{1,2}, \d{4})", item[3])
+    if match:
+        date_string = match.group(1)
+        pubDate = datetime.strptime(date_string, "%B %d, %Y")
+    else:
+        pubDate = datetime.now()
+    fe.pubDate(timezone.localize(pubDate))
+rssfeed = fg.rss_str(pretty=True)
+fg.rss_file(sys.argv[len(sys.argv) - 1])
