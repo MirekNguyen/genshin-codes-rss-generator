@@ -37,15 +37,17 @@ fg.language("en")
 for item in reversed(data):
     fe = fg.add_entry()
     fe.id(item[0])
-    fe.title(item[3])
     fe.link(href="https://genshin.hoyoverse.com/en/gift?code=" +
             item[0], replace=True)
     match = re.search(r"Discovered: ([A-Za-z]+ \d{1,2}, \d{4})", item[3])
     if match:
+        fe.title(match.group())
         date_string = match.group(1)
         pubDate = datetime.strptime(date_string, "%B %d, %Y")
     else:
+        fe.title(item[3])
         pubDate = datetime.now()
+    fe.description(item[3])
     fe.pubDate(timezone.localize(pubDate))
 rssfeed = fg.rss_str(pretty=True)
 fg.rss_file(sys.argv[len(sys.argv) - 1])
